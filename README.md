@@ -10,3 +10,4 @@ v1.0.14 added motor control and button driven volume control
 todo
 v1.1.0 new release - added LCD support an dynamic detection of LCD vs OLED so user doesn't have to configure that.
 roadmap - Add support for Nano-ARM for 44.1khz HQ audio. Already have the code base but need to merge it in with main code base
+
