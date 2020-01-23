@@ -11,3 +11,8 @@ v1.1.0 new release - added LCD(I2C) support and dynamic detection of LCD vs OLED
 todo 
 roadmap - Add support for Nano-ARM for 44.1khz HQ audio. Already have the code base but need to merge it in with main code base
 
+Requires the following libraries: <br /> 
+SdFat by Bill Greiman<br /> 
+LiquidCrystal_I2C by Frank de Brabander <br /> 
+PCM by TMRh20 <br /> 
+ssd1306 by Alexey Dynda <br /> 
