@@ -4,7 +4,7 @@ When purchasing a microSD card do not get a cheap or a super-fast one like a cla
 
 If you are interested in buying one email me: info@youmakerobots.com
 
-v1.0.10 new release with many features like dynamic SD detection - only supports OLED 128x64 or OLED 128x32
+<v1.0.10 new release with many features like dynamic SD detection - only supports OLED 128x64 or OLED 128x32 - 13/1/2020> 
 v1.0.14 added motor control and button driven volume control
 
 todo
