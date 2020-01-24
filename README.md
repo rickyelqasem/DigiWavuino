@@ -7,6 +7,7 @@ If you are interested in buying one email me: info@youmakerobots.com
 v1.0.10 new release with many features like dynamic SD detection - only supports OLED 128x64 or OLED 128x32 - 13/1/2020 <br /> 
 v1.0.14 added motor control and button driven volume control 16/1/2020 <br />
 v1.1.0 new release - added LCD(I2C) support and dynamic detection of LCD vs OLED so user doesn't have to configure that - 22/01/2020 <br /> 
+v1.1.1 - tidied code up and made menu more responsive - 24/01/202 <br /> 
 
 todo 
 roadmap - Add support for Nano-ARM for 44.1khz HQ audio. Already have the code base but need to merge it in with main code base
