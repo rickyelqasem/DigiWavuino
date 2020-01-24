@@ -5,11 +5,10 @@
 #include <SPI.h>
 #include <TMRpcm.h>
 #include <Wire.h>
-
-//#include <ssd1306.h>
-//#include <ssd1306_console.h>
-//#include <ssd1306_fonts.h>
-// uint8_t factor = 0;
+#define scrUpdate 3000
+unsigned long time_for_action;
+#define posUpdate 500;
+unsigned long time_to_move;
 char filename[100];
 uint8_t LCDaddr;
 #define btnPlay 17
@@ -36,7 +35,6 @@ SdFat sd;
 // declare functions
 void firstLine(char *line1);
 void secondLine(char *line2, int pos);
-// void displaylogo();
 void (*resetFunc)(void) = 0;
 void getfilecount();
 void getfilebatch();
@@ -53,11 +51,7 @@ void motorunpause();
 void changevol();
 
 void setup() {
-  // setup oled
-  // ssd1306_setFixedFont(ssd1306xled_font8x16);
-  // ssd1306_128x64_i2c_init();
-  // ssd1306_fillScreen(0x00);
-  // ssd1306_clearScreen();
+
   byte addr = getI2Caddr();
   if (addr == 39) {
     LCDaddr = 0x27;
@@ -74,7 +68,7 @@ void setup() {
   }
   // ssd1306_clearScreen();
   firstLine("DigiWavuino");
-  secondLine("Version: v1.1.0", 0);
+  secondLine("Version: v1.1.1", 0);
   delay(2000);
 
   //---------------setup buttons-----------------------
@@ -94,15 +88,13 @@ void setup() {
   digitalWrite(MotorCtrl, HIGH);
 
   // First Msg
-  // memset(msg, 0, sizeof(msg));
   memset(filename, 0, sizeof(filename));
-  // strcpy(msg, "PLAY A WAV FILE");
   strcpy(filename, "Loading up wavs");
   firstLine(playwaymsg);
   secondLine(filename, 0);
 
   // get initial filecount
-  delay(2000);
+  delay(1000);
   getfilecount();
   getfilebatch();
   secondLine(filename, 0);
@@ -111,20 +103,20 @@ void setup() {
 void loop() {
   filelength = strlen(filename);
   if (filecount == 0) {
-    // ispaused = false;
-    // isstopped = true;
-    // hasplayed = false;
     fileposition = 0;
     getfilecount();
     getfilebatch();
   }
-  for (int positionCounter = 0; positionCounter < filelength;
-       positionCounter++) {
-
+  for (int positionCounter = 0; positionCounter < filelength;) {
+    if (millis() > time_to_move && !Taudio.isPlaying()) {
+      time_to_move = millis() + (unsigned long)posUpdate;
+      secondLine(filename, positionCounter);
+      positionCounter++;
+    }
     // scroll if not in play mode
     if (!Taudio.isPlaying()) {
-      if (positionCounter == 5 || positionCounter == 10 ||
-          positionCounter == 15 || positionCounter == 20) {
+      if (millis() > time_for_action) {
+        time_for_action = millis() + (unsigned long)scrUpdate;
         checksd();
         if (sdejected) {
           fileposition = 0;
@@ -132,7 +124,7 @@ void loop() {
           getfilebatch();
         }
       }
-      secondLine(filename, positionCounter);
+
       isstopped = true;
     }
 
@@ -162,6 +154,7 @@ void loop() {
       if (isstopped || !ispaused) {
         if (digitalRead(MotorCtrl) == LOW || !mctrl) {
           playwav();
+          delay(500);
         }
       }
     }
@@ -169,11 +162,13 @@ void loop() {
     if (digitalRead(btnPlay) == LOW && Taudio.isPlaying()) {
       if (!isstopped) {
         pausefile();
+        delay(500);
       }
     }
     // if stop button is pressed
     if (digitalRead(btnStop) == LOW && Taudio.isPlaying()) {
       stopplay();
+      positionCounter = 0;
     }
     // change volume if stopped pressed while not playing
     if (digitalRead(btnStop) == LOW && !Taudio.isPlaying()) {
@@ -198,35 +193,15 @@ void loop() {
     if (digitalRead(btnMenu) == LOW && !Taudio.isPlaying()) {
       changeMotor();
     }
-    delay(200);
+    // delay(200);
   }
-} /*
- // print on first line
- void firstLine(char *line1) {
-   ssd1306_clearScreen();
-   ssd1306_printFixedN(0, 0, line1, STYLE_NORMAL, factor);
- }
- // print on 2nd line
- void secondLine(char *line2, int pos) {
-   char smalline[105];
-   memset(smalline, 0, sizeof(smalline));
-   strncpy(smalline, line2 + pos, 16);
-   strncat(smalline, "   ", strlen(smalline));
-   smalline[strlen(smalline)] = '\0';
-   ssd1306_printFixedN(0, 20, "                          ", STYLE_NORMAL,
-                       factor);
-   ssd1306_printFixedN(0, 20, smalline, STYLE_NORMAL, factor);
-   delay(200);
- }*/
-// display the logo
-// void displaylogo() { ssd1306_drawBitmap(0, 0, 128, 64, logo); }
-
+}
 // get the filecount
 void getfilecount() {
   SdFile file;
   SdFile dirFile;
   if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
-    // ssd1306_clearScreen();
+
     firstLine("Insert sd card");
     while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
       if (digitalRead(btnMenu) == LOW) {
@@ -235,7 +210,6 @@ void getfilecount() {
     }
   }
 
-  // ssd1306_printFixedN(0, 0, playwaymsg, STYLE_NORMAL, factor);
   firstLine(playwaymsg);
   // List files in root directory.
   if (!dirFile.open("/", O_RDONLY)) {
@@ -253,7 +227,6 @@ void getfilecount() {
 
 // get the next filename
 void getfilebatch() {
-  // SdFat sd;
   SdFile file2;
   SdFile dirFile2;
   int dirposition = 0;
@@ -309,24 +282,23 @@ bool isWav(char *filename) {
 void playwav() {
   if (isWav(filename)) {
     isstopped = false;
-    // ssd1306_clearScreen();
+
     firstLine("Playing:");
     secondLine(filename, 0);
     Taudio.play(filename);
     delay(1000);
     hasplayed = true;
   } else {
-    // ssd1306_clearScreen();
+
     firstLine("Not a Wav file");
     delay(2000);
-    // ssd1306_clearScreen();
+
     firstLine(playwaymsg);
   }
 }
 // pause a file
 void pausefile() {
 
-  // ssd1306_clearScreen();
   Taudio.pause();
   if (!ispaused) {
     firstLine("Paused!");
@@ -341,7 +313,7 @@ void pausefile() {
 // stop a file
 void stopplay() {
   if (Taudio.isPlaying()) {
-    // ssd1306_clearScreen();
+
     Taudio.stopPlayback();
     firstLine("Stopped!");
     isstopped = true;
@@ -353,19 +325,19 @@ void stopplay() {
 void changeMotor() {
   if (!mctrl) {
     mctrl = true;
-    // ssd1306_clearScreen();
+
     firstLine("MotorCtrl:ON");
     delay(1000);
-    // ssd1306_clearScreen();
+
     firstLine(playwaymsg);
     return;
   }
   if (mctrl) {
     mctrl = false;
-    // sd1306_clearScreen();
+
     firstLine("MotorCtrl:OFF");
     delay(1000);
-    // ssd1306_clearScreen();
+
     firstLine(playwaymsg);
     return;
   }
@@ -376,7 +348,7 @@ void checksd() {
 
     if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
       // sd.initErrorHalt();
-      // ssd1306_clearScreen();
+
       filecount = 0;
       sdejected = true;
       firstLine("Insert sd card");
@@ -386,7 +358,7 @@ void checksd() {
         }
       }
     }
-    // ssd1306_clearScreen();
+
     firstLine(playwaymsg);
   }
 }
@@ -416,14 +388,14 @@ void changevol() {
     volume = 0;
   }
   Taudio.setVolume(volume);
-  // ssd1306_clearScreen();
+
   firstLine("Volume set to:");
   char vol[2];
   String strvol = (String)volume;
   strvol.toCharArray(vol, 2);
   secondLine(vol, 0);
-  delay(1000);
-  // ssd1306_clearScreen();
+  delay(500);
+
   firstLine(playwaymsg);
   secondLine(filename, 0);
 }
