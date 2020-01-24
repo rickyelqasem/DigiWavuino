@@ -2,6 +2,12 @@ It is used to play WAV files (games and apps) from a MicroSD card through an aud
 
 When purchasing a microSD card do not get a cheap or a super-fast one like a class 10 card.  Operating it is simple. Once the SD is in with wavs in the root of the SD card use the up and down buttons to scroll through the wav files. Press play to play and again to pause. If you press the stop button while there is no file playing it will change the volume for you. The M button enables motorcontrol if you need it. The the reset button resets the device. 
 
+Requires the following libraries: <br /> 
+SdFat by Bill Greiman<br /> 
+LiquidCrystal_I2C by Frank de Brabander <br /> 
+PCM by TMRh20 <br /> 
+ssd1306 by Alexey Dynda <br /> 
+
 If you are interested in buying one email me: info@youmakerobots.com
 
 v1.0.10 new release with many features like dynamic SD detection - only supports OLED 128x64 or OLED 128x32 - 13/1/2020 <br /> 
@@ -11,9 +17,3 @@ v1.1.1 - tidied code up and made menu more responsive - 24/01/202 <br />
 
 todo 
 roadmap - Add support for Nano-ARM for 44.1khz HQ audio. Already have the code base but need to merge it in with main code base
-
-Requires the following libraries: <br /> 
-SdFat by Bill Greiman<br /> 
-LiquidCrystal_I2C by Frank de Brabander <br /> 
-PCM by TMRh20 <br /> 
-ssd1306 by Alexey Dynda <br /> 
