@@ -2,14 +2,15 @@
 #include "logo.h"
 #include "screen.h"
 #include <Arduino.h>
+//#include <EEPROM.h>
 #include <SPI.h>
 #include <TMRpcm.h>
 #include <Wire.h>
+
 #define scrUpdate 3000
 unsigned long time_for_action;
 #define posUpdate 500;
 unsigned long time_to_move;
-char filename[100];
 uint8_t LCDaddr;
 #define btnPlay 17
 #define btnStop 16
@@ -25,22 +26,34 @@ bool isstopped = true;
 bool hasplayed = false;
 const uint8_t SD_CS_PIN = SS;
 int filecount = 0;
-int fileposition = 0;
+char fileName[100];
 int filelength;
+int fileposition = 0;
+bool isFolder = false;
+int dirTreeCount = 0;
+char path[30] = "/";
+char rootsym[2] = "/";
+int counter = sizeof(path) - 2;
 char *playwaymsg = "PLAY A WAV:";
 bool sdejected = true;
 bool isLCD = false;
+char folder[]="This is a folder";
 SdFat sd;
+SdFile file;
 
+// uint8_t eepaddr = 0;
+// int eepromMctrl;
 // declare functions
 void firstLine(char *line1);
 void secondLine(char *line2, int pos);
 void (*resetFunc)(void) = 0;
-void getfilecount();
-void getfilebatch();
+void getFilecount();
+void getFileBatch();
+void removePath(int pathSize);
+void expandPath(char *fileName);
 void setup();
 void loop();
-bool isWav(char *filename);
+bool isWav(char *fileName);
 void playwav();
 void pausefile();
 void stopplay();
@@ -51,6 +64,14 @@ void motorunpause();
 void changevol();
 
 void setup() {
+  /*
+  eepromMctrl = EEPROM.read(eepaddr);
+  if (eepromMctrl == 0) {
+    mctrl = false;
+
+  } else {
+    mctrl = true;
+  }*/
 
   byte addr = getI2Caddr();
   if (addr == 39) {
@@ -68,7 +89,7 @@ void setup() {
   }
   // ssd1306_clearScreen();
   firstLine("DigiWavuino");
-  secondLine("Version: v1.1.1", 0);
+  secondLine("Ver: v1.1.3.4", 0);
   delay(2000);
 
   //---------------setup buttons-----------------------
@@ -88,29 +109,40 @@ void setup() {
   digitalWrite(MotorCtrl, HIGH);
 
   // First Msg
-  memset(filename, 0, sizeof(filename));
-  strcpy(filename, "Loading up wavs");
+  memset(fileName, 0, sizeof(fileName));
+  strcpy(fileName, "Loading up wavs");
   firstLine(playwaymsg);
-  secondLine(filename, 0);
-
+  secondLine(fileName, 0);
+  while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
+    firstLine("Insert SD");
+  }
+  sd.chdir();
+  firstLine(playwaymsg);
   // get initial filecount
   delay(1000);
-  getfilecount();
-  getfilebatch();
-  secondLine(filename, 0);
+  getFilecount();
+  getFileBatch();
+  secondLine(fileName, 0);
 }
 
 void loop() {
-  filelength = strlen(filename);
+  filelength = strlen(fileName);
   if (filecount == 0) {
     fileposition = 0;
-    getfilecount();
-    getfilebatch();
+    getFilecount();
+    getFileBatch();
   }
   for (int positionCounter = 0; positionCounter < filelength;) {
+
     if (millis() > time_to_move && !Taudio.isPlaying()) {
       time_to_move = millis() + (unsigned long)posUpdate;
-      secondLine(filename, positionCounter);
+      if(!isFolder){
+      secondLine(fileName, positionCounter);
+      }
+      if(isFolder){
+      firstLine(folder);
+      secondLine(fileName, positionCounter);
+      }
       positionCounter++;
     }
     // scroll if not in play mode
@@ -120,8 +152,8 @@ void loop() {
         checksd();
         if (sdejected) {
           fileposition = 0;
-          getfilecount();
-          getfilebatch();
+          getFilecount();
+          getFileBatch();
         }
       }
 
@@ -135,7 +167,8 @@ void loop() {
         fileposition = 0;
       }
       positionCounter = 0;
-      getfilebatch();
+      delay(200);
+      getFileBatch();
       break;
     }
 
@@ -146,11 +179,12 @@ void loop() {
         fileposition = filecount - 1;
       }
       positionCounter = 0;
-      getfilebatch();
+      delay(200);
+      getFileBatch();
       break;
     }
     // if play button pressed
-    if (digitalRead(btnPlay) == LOW && !Taudio.isPlaying()) {
+    if (digitalRead(btnPlay) == LOW && !Taudio.isPlaying() && !isFolder) {
       if (isstopped || !ispaused) {
         if (digitalRead(MotorCtrl) == LOW || !mctrl) {
           playwav();
@@ -158,6 +192,17 @@ void loop() {
         }
       }
     }
+    // if play is pressed and its a folder
+    if (digitalRead(btnPlay) == LOW && !Taudio.isPlaying() && isFolder) {
+      expandPath(fileName);
+      fileposition = 0;
+      positionCounter = 0;
+      delay(500);
+      getFilecount();
+      getFileBatch();
+      break;
+    }
+
     // if play is pressed while playing
     if (digitalRead(btnPlay) == LOW && Taudio.isPlaying()) {
       if (!isstopped) {
@@ -170,9 +215,14 @@ void loop() {
       stopplay();
       positionCounter = 0;
     }
-    // change volume if stopped pressed while not playing
+    // shrink folder path if stopped pressed while not playing
     if (digitalRead(btnStop) == LOW && !Taudio.isPlaying()) {
-      changevol();
+      removePath(counter);
+      fileposition = 0;
+      positionCounter = 0;
+      getFilecount();
+      getFileBatch();
+      delay(500);
     }
     // if reset combo pressed
     if (digitalRead(btnMenu) == LOW && digitalRead(btnStop) == LOW) {
@@ -196,64 +246,45 @@ void loop() {
     // delay(200);
   }
 }
-// get the filecount
-void getfilecount() {
-  SdFile file;
-  SdFile dirFile;
-  if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
+// ---------------------count files & folder in current directory-------------
+void getFilecount() {
+  sd.chdir(path);
+  file.cwd()->rewind();
+  filecount = 0;
+  while (file.openNext(file.cwd(), O_RDONLY)) {
+    if (!file.isHidden()) {
 
-    firstLine("Insert sd card");
-    while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
-      if (digitalRead(btnMenu) == LOW) {
-        resetFunc();
-      }
-    }
-  }
-
-  firstLine(playwaymsg);
-  // List files in root directory.
-  if (!dirFile.open("/", O_RDONLY)) {
-    sd.errorHalt("open root failed");
-  }
-  while (file.openNext(&dirFile, O_RDONLY)) {
-    sdejected = false;
-    // Skip directories and hidden files.
-    if (!file.isSubDir() && !file.isHidden()) {
       filecount++;
     }
     file.close();
   }
+  // file.cwd()->rewind();
 }
-
-// get the next filename
-void getfilebatch() {
-  SdFile file2;
-  SdFile dirFile2;
+//----------get the file or directory name -----------------
+void getFileBatch() {
   int dirposition = 0;
   int indposition = 0;
-
-  if (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
-    sd.initErrorHalt();
-  }
-
-  // List files in root directory.
-  if (!dirFile2.open("/", O_RDONLY)) {
-    sd.errorHalt("open root failed");
-  }
-
-  while (file2.openNext(&dirFile2, O_RDONLY)) {
+  sd.chdir(path);
+  // file.cwd()->rewind();
+  while (file.openNext(file.cwd(), O_RDONLY)) {
     sdejected = false;
     // Skip directories and hidden files.
-    if (!file2.isSubDir() && !file2.isHidden()) {
+    if (!file.isHidden()) {
 
       if (dirposition >= fileposition) {
 
         if (indposition < 1) {
 
-          memset(filename, 0, sizeof(filename)); // to zero-out the buffer
-          file2.getName(filename, 100);
+          memset(fileName, 0, sizeof(fileName)); // to zero-out the buffer
+          file.getName(fileName, 100);
 
-          filelength = strlen(filename);
+          filelength = strlen(fileName);
+          if (file.isSubDir()) {
+            isFolder = true;
+          }
+          if (!file.isSubDir()) {
+            isFolder = false;
+          }
         }
         indposition++;
       }
@@ -261,16 +292,17 @@ void getfilebatch() {
       dirposition++;
     }
 
-    file2.close();
+    file.close();
   }
 }
-// check if filename is a wav
-bool isWav(char *filename) {
-  int8_t len = strlen(filename);
+
+// check if fileName is a wav
+bool isWav(char *fileName) {
+  int8_t len = strlen(fileName);
   bool result;
-  if (strstr(strlwr(filename + (len - 4)), ".wav")) {
+  if (strstr(strlwr(fileName + (len - 4)), ".wav")) {
     result = true;
-  } else if (strstr(strlwr(filename + (len - 4)), ".WAV")) {
+  } else if (strstr(strlwr(fileName + (len - 4)), ".WAV")) {
     result = true;
   } else {
     result = false;
@@ -280,12 +312,12 @@ bool isWav(char *filename) {
 }
 // play wav file
 void playwav() {
-  if (isWav(filename)) {
+  if (isWav(fileName)) {
     isstopped = false;
 
     firstLine("Playing:");
-    secondLine(filename, 0);
-    Taudio.play(filename);
+    secondLine(fileName, 0);
+    Taudio.play(fileName);
     delay(1000);
     hasplayed = true;
   } else {
@@ -306,7 +338,7 @@ void pausefile() {
 
   } else {
     firstLine("Playing:");
-    secondLine(filename, 0);
+    secondLine(fileName, 0);
     ispaused = false;
   }
 }
@@ -325,6 +357,7 @@ void stopplay() {
 void changeMotor() {
   if (!mctrl) {
     mctrl = true;
+    // EEPROM.write(eepaddr, 1);
 
     firstLine("MotorCtrl:ON");
     delay(1000);
@@ -334,7 +367,7 @@ void changeMotor() {
   }
   if (mctrl) {
     mctrl = false;
-
+    // EEPROM.write(eepaddr, 0);
     firstLine("MotorCtrl:OFF");
     delay(1000);
 
@@ -376,29 +409,12 @@ void motorunpause() {
     Taudio.pause();
     // ssd1306_clearScreen();
     firstLine("Playing:");
-    secondLine(filename, 0);
+    secondLine(fileName, 0);
     ispaused = false;
   }
 }
 
-// change the volume
-void changevol() {
-  volume++;
-  if (volume > 7) {
-    volume = 0;
-  }
-  Taudio.setVolume(volume);
-
-  firstLine("Volume set to:");
-  char vol[2];
-  String strvol = (String)volume;
-  strvol.toCharArray(vol, 2);
-  secondLine(vol, 0);
-  delay(500);
-
-  firstLine(playwaymsg);
-  secondLine(filename, 0);
-}
+// format first text line
 void firstLine(char *line1) {
   if (isLCD) {
     LCD1st(LCDaddr, line1);
@@ -407,6 +423,7 @@ void firstLine(char *line1) {
     OLED1st(line1);
   }
 }
+// format 2nd text line
 void secondLine(char *line2, int pos) {
   if (isLCD) {
     LCD2nd(LCDaddr, line2, pos);
@@ -414,4 +431,35 @@ void secondLine(char *line2, int pos) {
   if (!isLCD) {
     OLED2nd(line2, pos);
   }
+}
+// shrink the path
+void removePath(int pathSize) {
+  for (int i = pathSize; i > 0; i--) {
+    if (path[i] == '/') {
+      // path[strlen(path) -1] = '\0';
+      path[counter] = NULL;
+      counter--;
+      break;
+    }
+    // path[strlen(path) -1] = '\0';
+    path[counter] = NULL;
+    counter--;
+  }
+  if (dirTreeCount >= 0) {
+    dirTreeCount--;
+  }
+  sd.chdir(path);
+}
+
+// expand the path
+void expandPath(char *fileName) {
+  if (dirTreeCount == 0) {
+    strcat(path, fileName);
+    dirTreeCount++;
+  } else if (dirTreeCount <= 3) {
+    strcat(path, rootsym);
+    strcat(path, fileName);
+    dirTreeCount++;
+  }
+  sd.chdir(path);
 }
