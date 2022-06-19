@@ -18,9 +18,7 @@ unsigned long time_to_move;
 #define btnFwd 14
 #define btnMenu 7
 #define MotorCtrl 6
-#define btnRec 2
-//const byte REC_BUTTON_PIN = A6;
-#define REC_BUTTON_PIN 20
+const byte REC_BUTTON_PIN = A6;
 bool isRecPress= false;
 bool isRecording = false;
 bool mctrl = 0;
@@ -29,8 +27,7 @@ TMRpcm Taudio;
 bool ispaused = false;
 bool isstopped = true;
 bool hasplayed = false;
-//const uint8_t SD_CS_PIN = SS;
-#define SD_CS_PIN 10
+const uint8_t SD_CS_PIN = SS;
 int filecount = 0;
 char fileName[100];
 int filelength;
@@ -79,7 +76,7 @@ void setup() {
   }*/
 
    //Serial.begin(9600);
-  /*
+/*
   byte addr = getI2Caddr();
   if (addr == 39) {
     LCDaddr = 0x27;
@@ -89,20 +86,21 @@ void setup() {
     isLCD = true;
   } else {
     isLCD = false;
-  }*/
+  }
   if (!isLCD) {
     displaylogo();
     delay(2000);
   }
   // ssd1306_clearScreen();
   firstLine("DigiWavuino");
-  secondLine("Ver: v1.2.2", 0);
+  secondLine("Ver: v1.2.0.7", 0);
   delay(2000);
-
+*/
+    displaylogo();
+    delay(2000);
   //---------------setup buttons-----------------------
 
   Taudio.speakerPin = 9;
-  Taudio.CSPin = SD_CS_PIN;
   pinMode(btnPlay, INPUT_PULLUP);
   digitalWrite(btnPlay, HIGH);
   pinMode(btnStop, INPUT_PULLUP);
@@ -115,22 +113,19 @@ void setup() {
   digitalWrite(btnMenu, HIGH);
   pinMode(MotorCtrl, INPUT_PULLUP);
   digitalWrite(MotorCtrl, HIGH);
-
-  pinMode(btnRec, INPUT_PULLUP);
-  digitalWrite(btnRec, HIGH);
-
   pinMode(REC_BUTTON_PIN, INPUT);
-  
+  pinMode(A7, OUTPUT);
+
   // First Msg
   memset(fileName, 0, sizeof(fileName));
   strcpy(fileName, "Loading up wavs");
-  firstLine("Play a .wav");
+  firstLine("Play A Wav");
   secondLine(fileName, 0);
   while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
     firstLine("Insert SD");
   }
   dir.open(path);
-  firstLine("Play a .wav");
+  firstLine("Play A Wav");
   // get initial filecount
   delay(1000);
   getFilecount();
@@ -237,18 +232,14 @@ void loop() {
       getFileBatch();
       delay(500);
     }
-    /*
-    isRecPress= analogRead(REC_BUTTON_PIN) > 10 ? false : true;
-      if (isRecPress) {
-        
+    
+    isRecPress= analogRead(REC_BUTTON_PIN) > 100 ? false : true;
+   
+      if (isRecPress&& !isRecording) {
+      //Serial.println("a6");
       recordFunc();
-     
+            
     }
-    */
-    if (digitalRead(btnRec) == LOW){
-        recordFunc();
-    }
-
     // if reset combo pressed
     
     if (digitalRead(btnMenu) == LOW && digitalRead(btnStop) == LOW) {
@@ -357,7 +348,7 @@ void playwav() {
     firstLine("Not a Wav file");
     delay(2000);
 
-    firstLine("Play a .wav");
+    firstLine("Play A Wav");
   }
 }
 // pause a file
@@ -382,7 +373,7 @@ void stopplay() {
     firstLine("Stopped!");
     isstopped = true;
     delay(1000);
-    firstLine("Play a .wav");
+    firstLine("Play A Wav");
   }
 }
 // change motor control on/off
@@ -394,7 +385,7 @@ void changeMotor() {
     firstLine("MotorCtrl:ON");
     delay(1000);
 
-    firstLine("Play a .wav");
+    firstLine("Play A Wav");
     return;
   }
   if (mctrl) {
@@ -403,7 +394,7 @@ void changeMotor() {
     firstLine("MotorCtrl:OFF");
     delay(1000);
 
-    firstLine("Play a .wav");
+    firstLine("Play A Wav");
     return;
   }
 }
@@ -424,7 +415,7 @@ void checksd() {
       }
     }
 
-    firstLine("Play a .wav");
+    firstLine("Play A Wav");
   }
 }
 // pause through REM
@@ -507,56 +498,36 @@ void expandPath(char *fileName) {
 }
 
 void recordFunc(){
-      firstLine("Press REC or");
-      secondLine("Stop to Cancel", 0);
-      delay(1000);
-      while(digitalRead(btnStop) == HIGH && digitalRead(btnRec) == HIGH){
-
-      }
-      if (digitalRead(btnRec) == LOW){
-      filecount=0;
+//firstLine("record press");
+      
+      
+      /*filecount =0;
       getFilecount();
-      char wavBuf[50];
-      sprintf(wavBuf, "%s/DigiSave%i.WAV", path, filecount);
-      char fileBuf[16];
-      sprintf(fileBuf, "DigiSave%i.WAV", filecount);
+      char b[10];
+      //char sav[4]="sav";
+      String str = "sav";
+      str.concat(String(filecount));
+      str.toCharArray(b,10);
+      //strcpy(b, sav);
+      firstLine(b);
+      delay(5000);
+      //dir.open("/");
+      */
       
       isRecording = true;
-      //sd.chdir(path);
+      sd.chdir(path);
       //Serial.println("recording");
-      Taudio.startRecording(wavBuf,22050,A7);
+      Taudio.startRecording("test.wav",16000,A7);
       firstLine("Recording");
-      secondLine(fileBuf, 0 );
-      memset(fileName, 0, sizeof(fileName)); 
-      strcpy(fileName, fileBuf);
       while(isRecording){
         if (digitalRead(btnStop) == LOW){
-           break;
+          isRecording = false;
+          break;
         }
       }
       
-      firstLine("Stopped!");
-      Taudio.stopRecording(wavBuf);
-      delay(200);
-      isRecording = false;
-      //pinMode(REC_BUTTON_PIN, INPUT);
-      //isRecPress= analogRead(REC_BUTTON_PIN) > 100 ? false : true;
-      //return;
-      //Serial.println("stoped recording");
-      filecount=0;
-      getFilecount();
-      //getFileBatch();
-      }
-      
-      if(digitalRead(btnStop) == LOW){
-      //firstLine("Cancelling at");
-      //secondLine("your request!", 0);
-      delay(1000);
-      
-      filecount=0;
-      getFilecount();
-      getFileBatch();
+      Taudio.stopRecording("test.wav");
       return;
-      }
+      //Serial.println("stoped recording");
       
 }

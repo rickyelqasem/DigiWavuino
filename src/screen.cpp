@@ -1,17 +1,18 @@
 #include "screen.h"
 #include "logo.h"
 #include <Arduino.h>
-#include <LiquidCrystal_I2C.h>
+//#include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <ssd1306.h>
 #include <ssd1306_console.h>
 #include <ssd1306_fonts.h>
 
-bool lcdInit = false;
+//bool lcdInit = false;
 bool oledInit = false;
-uint8_t factor = 0;
-
+//uint8_t factor = 0;
+#define factor 0
+/*
 byte i2Caddress;
 byte getI2Caddr() {
 
@@ -44,7 +45,8 @@ byte getI2Caddr() {
     }
   }
   return i2Caddress;
-}
+}*/
+/*
 void LCD1st(uint8_t addr, char *msg) {
   LiquidCrystal_I2C lcd(addr, 20, 4);
   if (!lcdInit) {
@@ -68,7 +70,7 @@ void LCD2nd(uint8_t addr, char *msg2, int pos) {
 
   lcd.setCursor(0, 1);
   lcd.print(subStr.substring(pos, subStr.length()) + " ");
-}
+}*/
 void OLED1st(char *line1) {
   ssd1306_setFixedFont(ssd1306xled_font8x16);
   if (!oledInit) {
