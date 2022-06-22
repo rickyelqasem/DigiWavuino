@@ -2,7 +2,7 @@ It is used to play and record WAV files (games and apps) from a MicroSD card thr
 
 When purchasing a microSD card do not get a cheap or a super-fast one like a class 10 card.  Operating it is simple. Once the SD is in with wavs in the root of the SD card use the up and down buttons to scroll through the wav files. Press play to play and again to pause. If you press play over a folder you will enter that folder. To exit the folder press stop. The M button enables motorcontrol if you need it. The the reset button resets the device. 
 
-Whether the record feature added you will not be able to use conventional Arduitape device. Read the version note below. <br /> 
+If you want to use the record feature you will not be able to use conventional Arduitape device. Read the version note below. <br /> 
 
 Record feature works by recording a wav file with an auto generate incremntal filename. It counts how many files in the folder where you are recording and uses that number to form the next filename. for example if there are 4 files in the folder the next filename would be DigiSave4.wav . <br /> 
 
