@@ -11,7 +11,7 @@
 unsigned long time_for_action;
 #define posUpdate 500;
 unsigned long time_to_move;
-//uint8_t LCDaddr;
+uint8_t LCDaddr;
 #define btnPlay 17
 #define btnStop 16
 #define btnBack 15
@@ -19,8 +19,8 @@ unsigned long time_to_move;
 #define btnMenu 7
 #define MotorCtrl 6
 #define btnRec 2
-//const byte REC_BUTTON_PIN = A6;
 #define REC_BUTTON_PIN 20
+#define filelen 80
 bool isRecPress= false;
 bool isRecording = false;
 bool mctrl = 0;
@@ -32,7 +32,7 @@ bool hasplayed = false;
 //const uint8_t SD_CS_PIN = SS;
 #define SD_CS_PIN 10
 int filecount = 0;
-char fileName[100];
+char fileName[filelen];
 int filelength;
 int fileposition = 0;
 bool isFolder = false;
@@ -42,6 +42,7 @@ char rootsym[2] = "/";
 int counter = strlen(path);
 bool sdejected = true;
 bool isLCD = false;
+char * playmsg = "Play a .wav";
 SdFat sd;
 SdFile file;
 File dir;
@@ -67,7 +68,9 @@ void checksd();
 void motorpause();
 void motorunpause();
 void recordFunc();
-
+void lcdPrint(uint8_t addr, char *LCDmsg, int opos, int line);
+byte getI2Caddr();
+void oledPrint(char *line2, int opos, int oledPos);
 void setup() {
   /*
   eepromMctrl = EEPROM.read(eepaddr);
@@ -79,7 +82,7 @@ void setup() {
   }*/
 
    //Serial.begin(9600);
-  /*
+  
   byte addr = getI2Caddr();
   if (addr == 39) {
     LCDaddr = 0x27;
@@ -89,14 +92,15 @@ void setup() {
     isLCD = true;
   } else {
     isLCD = false;
-  }*/
+  }
   if (!isLCD) {
     displaylogo();
     delay(2000);
   }
+
   // ssd1306_clearScreen();
   firstLine("DigiWavuino");
-  secondLine("Ver: v1.2.2", 0);
+  secondLine("Ver: v1.2.3", 0);
   delay(2000);
 
   //---------------setup buttons-----------------------
@@ -120,17 +124,17 @@ void setup() {
   digitalWrite(btnRec, HIGH);
 
   pinMode(REC_BUTTON_PIN, INPUT);
-  
+ 
   // First Msg
   memset(fileName, 0, sizeof(fileName));
   strcpy(fileName, "Loading up wavs");
-  firstLine("Play a .wav");
+  firstLine(playmsg);
   secondLine(fileName, 0);
   while (!sd.begin(SD_CS_PIN, SD_SCK_MHZ(50))) {
     firstLine("Insert SD");
   }
   dir.open(path);
-  firstLine("Play a .wav");
+  firstLine(playmsg);
   // get initial filecount
   delay(1000);
   getFilecount();
@@ -237,14 +241,7 @@ void loop() {
       getFileBatch();
       delay(500);
     }
-    /*
-    isRecPress= analogRead(REC_BUTTON_PIN) > 10 ? false : true;
-      if (isRecPress) {
-        
-      recordFunc();
-     
-    }
-    */
+    // record pressed
     if (digitalRead(btnRec) == LOW){
         recordFunc();
     }
@@ -306,7 +303,7 @@ void getFileBatch() {
         if (indposition < 1) {
 
           memset(fileName, 0, sizeof(fileName)); // to zero-out the buffer
-          file.getName(fileName, 100);
+          file.getName(fileName, filelen);
 
           filelength = strlen(fileName);
           if (file.isSubDir()) {
@@ -357,7 +354,7 @@ void playwav() {
     firstLine("Not a Wav file");
     delay(2000);
 
-    firstLine("Play a .wav");
+    firstLine(playmsg);
   }
 }
 // pause a file
@@ -382,7 +379,7 @@ void stopplay() {
     firstLine("Stopped!");
     isstopped = true;
     delay(1000);
-    firstLine("Play a .wav");
+    firstLine(playmsg);
   }
 }
 // change motor control on/off
@@ -394,7 +391,7 @@ void changeMotor() {
     firstLine("MotorCtrl:ON");
     delay(1000);
 
-    firstLine("Play a .wav");
+    firstLine(playmsg);
     return;
   }
   if (mctrl) {
@@ -403,7 +400,7 @@ void changeMotor() {
     firstLine("MotorCtrl:OFF");
     delay(1000);
 
-    firstLine("Play a .wav");
+    firstLine(playmsg);
     return;
   }
 }
@@ -424,7 +421,7 @@ void checksd() {
       }
     }
 
-    firstLine("Play a .wav");
+    firstLine(playmsg);
   }
 }
 // pause through REM
@@ -449,19 +446,19 @@ void motorunpause() {
 // format first text line
 void firstLine(char *line1) {
   if (isLCD) {
-    //LCD1st(LCDaddr, line1);
+    lcdPrint(LCDaddr, line1 ,0 ,0);
   }
   if (!isLCD) {
-    OLED1st(line1);
+    oledPrint(line1, 0, 0);
   }
 }
 // format 2nd text line
 void secondLine(char *line2, int pos) {
   if (isLCD) {
-    //LCD2nd(LCDaddr, line2, pos);
+    lcdPrint(LCDaddr, line2, pos, 1);
   }
   if (!isLCD) {
-    OLED2nd(line2, pos);
+    oledPrint(line2, pos, 20);
   }
 }
 // shrink the path
@@ -539,8 +536,7 @@ void recordFunc(){
       Taudio.stopRecording(wavBuf);
       delay(200);
       isRecording = false;
-      //pinMode(REC_BUTTON_PIN, INPUT);
-      //isRecPress= analogRead(REC_BUTTON_PIN) > 100 ? false : true;
+
       //return;
       //Serial.println("stoped recording");
       filecount=0;
@@ -549,8 +545,6 @@ void recordFunc(){
       }
       
       if(digitalRead(btnStop) == LOW){
-      //firstLine("Cancelling at");
-      //secondLine("your request!", 0);
       delay(1000);
       
       filecount=0;
