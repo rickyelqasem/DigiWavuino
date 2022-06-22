@@ -19,6 +19,7 @@ v1.1.0 new release - added LCD(I2C) support and dynamic detection of LCD vs OLED
 v1.1.1 - tidied code up and made menu more responsive - 24/01/2020 <br />
 v1.1.3.5 - added folder support - you can go 4 folders deep and back again. The complete folder path must not be more than 30 charachters so keep folder names short - 01/01/2020 <br />
 v1.2.2 added record feature but had to loose dynamic LCD support for the memory. YES RECORD! but you need a MIC jack on A6 and a button on D2. Also debugged folder support. <br /> 
+v1.2.3 added LCD support again. So now firmware will detect LCD + LCD address or OLED <br /> 
 
 todo 
 roadmap - Add support for Nano-ARM for 44.1khz HQ audio. Already have the code base but need to merge it in with main code base
